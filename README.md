@@ -1,2 +1,2 @@
-# LoRA-
+# LoRA+
 Project Repository for LoRA+ implementation
