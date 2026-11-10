@@ -1,0 +1,40 @@
+{
+  "model": "gpt2",
+  "task": "GLUE SST-2",
+  "method": "standard_lora",
+  "lambda_ratio": 1,
+  "seed": 44,
+  "pilot_run": false,
+  "train_examples": 67349,
+  "eval_examples": 872,
+  "epochs": 3,
+  "validation_accuracy": 0.9128440366972477,
+  "training_time_seconds": 1862.5813872814178,
+  "peak_gpu_memory_mb": 1189.62451171875,
+  "trainable_parameters": 1181184,
+  "total_parameters": 125622528,
+  "optimizer_steps": 12630,
+  "train_loss": 0.6018324443487921,
+  "evaluation_history": [
+    {
+      "epoch": 1.0,
+      "eval_loss": 0.26055243611335754,
+      "eval_accuracy": 0.9013761467889908
+    },
+    {
+      "epoch": 2.0,
+      "eval_loss": 0.2626263201236725,
+      "eval_accuracy": 0.911697247706422
+    },
+    {
+      "epoch": 3.0,
+      "eval_loss": 0.2656494975090027,
+      "eval_accuracy": 0.9128440366972477
+    },
+    {
+      "epoch": 3.0,
+      "eval_loss": 0.2656494975090027,
+      "eval_accuracy": 0.9128440366972477
+    }
+  ]
+}
