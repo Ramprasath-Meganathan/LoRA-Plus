@@ -1,4 +1,12 @@
-peft==0.21.2
-transformers==5.22.0
-datasets==4.8.5
+
+torch
+transformers
+peft
+accelerate
+datasets
 evaluate
+scikit-learn
+numpy
+pandas
+matplotlib
+sentencepiece
