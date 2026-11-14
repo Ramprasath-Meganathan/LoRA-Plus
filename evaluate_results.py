@@ -130,14 +130,21 @@ def get_final_runs(model_name, dataset_name):
         keep="last",
     )
 
-    counts = final.groupby("method")["seed"].nunique()
+    # Verify that both methods completed all expected seeds
+    expected_seeds = set(COMMON_CONFIG["seeds"])
 
-    if (
-        set(counts.index) != {"LoRA", "LoRA+"}
-        or not (counts == len(COMMON_CONFIG["seeds"])).all()
-    ):
+    for method in ["LoRA", "LoRA+"]:
+        actual_seeds = set(
+            final.loc[
+                final["method"] == method,
+                "seed"
+            ].astype(int)
+    )
+
+    if actual_seeds != expected_seeds:
         raise ValueError(
-            "Expected three final seeds for both methods"
+            f"{method}: Expected seeds {expected_seeds}, "
+            f"found {actual_seeds}"
         )
 
     return final
