@@ -48,7 +48,7 @@ def run_experiment(
     root = get_output_dir(model_name, dataset_name)
 
     runs_dir = root / "runs"
-    checkpoints_dir = root / "checkpoints"
+    checkpoints_dir = root / "checkpoints" / model_name / dataset_name
     results_csv = root / f"results_{dataset_name}.csv"
 
     runs_dir.mkdir(parents=True, exist_ok=True)

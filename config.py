@@ -4,9 +4,9 @@ from pathlib import Path
 
 # Persistent Google Drive output location.
 # This is separate from your completed SST-2 experiment.
-OUTPUT_ROOT = Path(
-    "/content/drive/MyDrive/LoRA_Plus_Project/modular_v2"
-)
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+OUTPUT_ROOT = PROJECT_ROOT / "results"
 
 MODELS = {
     "roberta": "roberta-base",
