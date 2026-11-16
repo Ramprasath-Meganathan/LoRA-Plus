@@ -175,3 +175,120 @@ def compute_metrics(eval_prediction):
         "f1": binary_f1,
         "f1_macro": macro_f1,
     }
+
+# --------------------------------------------------
+# Colab GPU Runtime and Compute Unit Estimation
+# --------------------------------------------------
+
+import time
+import torch
+from contextlib import contextmanager
+
+# Estimated CU/hour rates (not official billing rates)
+GPU_CU_RATES = {
+    "T4": 1.15,
+    "L4": 1.54,
+    "A100 40GB": 5.35,
+    "A100 80GB": 7.15,
+    "G4": 8.80,
+    "H100": 18.00,
+}
+
+# --------------------------------------------------
+# Colab GPU Runtime and Compute Unit Estimation
+# --------------------------------------------------
+
+import time
+import torch
+from contextlib import contextmanager
+
+# Approximate Google Colab Compute Unit (CU) hourly rates 
+# (Subject to minor adjustments by Google; 1 CU = ~$0.10 USD)
+GPU_CU_RATES = {
+    "T4": 1.19,
+    "L4": 1.71,
+    "A100 40GB": 5.40,
+    "A100 80GB": 7.52,
+    "H100": 11.00,  # Varies by tier/availability
+}
+
+def detect_gpu():
+    """Accurately detect the GPU assigned to the Colab runtime."""
+    if not torch.cuda.is_available():
+        return "CPU"
+
+    gpu_name = torch.cuda.get_device_name(0).upper()
+    memory_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+
+    if "H100" in gpu_name:
+        return "H100"
+    if "A100" in gpu_name:
+        # 80GB variant typically reports ~79+ GB, 40GB variant reports ~39+ GB
+        return "A100 80GB" if memory_gb > 50 else "A100 40GB"
+    if "L4" in gpu_name:
+        return "L4"
+    if "T4" in gpu_name:
+        return "T4"
+    
+    # Fallback catch-all based on VRAM size if name string is unfamiliar
+    if memory_gb > 70:
+        return "A100 80GB"
+    elif memory_gb > 35:
+        return "A100 40GB"
+    elif memory_gb > 20:
+        return "L4"
+        
+    return "T4"  # Default fallback assumption
+
+
+@contextmanager
+def track_compute(label, cu_per_hour=None):
+    """
+    Measure execution time and estimate compute-unit consumption.
+    Automatically detects the assigned GPU and tracks VRAM delta.
+    """
+    gpu = detect_gpu()
+    if cu_per_hour is None:
+        cu_per_hour = GPU_CU_RATES.get(gpu)
+
+    # Clear cache and record baseline VRAM usage
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.empty_cache()
+        start_mem = torch.cuda.memory_allocated() / 1024**2
+    else:
+        start_mem = 0
+
+    print(f"\n⚡ Starting: {label}")
+    print(f"   Detected GPU: {gpu}")
+    if cu_per_hour is not None:
+        print(f"   Assumed Rate: {cu_per_hour:.2f} CU/hour")
+    else:
+        print("   CU rate unavailable for this hardware.")
+
+    start_time = time.perf_counter()
+
+    try:
+        yield
+    finally:
+        elapsed = time.perf_counter() - start_time
+        
+        if torch.cuda.is_available():
+            peak_mem = torch.cuda.max_memory_allocated() / 1024**2
+            end_mem = torch.cuda.memory_allocated() / 1024**2
+        else:
+            peak_mem, end_mem = 0, 0
+
+        print(f"\n{'=' * 45}")
+        print(f"🏁 Experiment Finished: {label}")
+        print(f"   Hardware: {gpu}")
+        print(f"   Execution time: {elapsed / 60:.2f} minutes ({elapsed:.2f}s)")
+        print(f"   Peak VRAM Allocated: {peak_mem:.2f} MB")
+        
+        if cu_per_hour is not None:
+            estimated_cu = (elapsed / 3600.0) * cu_per_hour
+            print(f"   Estimated Compute Cost: {estimated_cu:.4f} CU (~${estimated_cu * 0.10:.3f})")
+        else:
+            print("   Estimated CU: Unavailable")
+            
+        print(f"{'=' * 45}\n")
