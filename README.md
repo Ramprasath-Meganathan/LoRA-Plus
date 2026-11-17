@@ -212,6 +212,33 @@ Both methods reached 93% mean validation accuracy at the same evaluation step an
 
 These results do not establish that standard LoRA is universally superior. The learning-rate search was limited, and hyperparameter selection used one seed.
 
+## 9.1 Completed Results: GPT-2 + SST-2
+
+The GPT-2/SST-2 experiment used the same three-epoch, nine-configuration screening workflow and final three-seed evaluation. The GPT-2-specific LoRA target modules were `c_attn`, `c_proj`, and `c_fc`.
+
+### Selected Screening Configurations
+
+| Parameter | Standard LoRA | LoRA+ |
+|---|---:|---:|
+| Matrix A learning rate | 0.0002 | 0.0001 |
+| Matrix B learning rate | 0.0002 | 0.0008 |
+| Ratio (`lambda`) | 1 | 8 |
+| Screening validation accuracy | 91.97% | 92.32% |
+
+### Final Three-Seed Results
+
+| Metric | Standard LoRA | LoRA+ |
+|---|---:|---:|
+| Validation accuracy | 91.70% ± 0.24% | **91.82% ± 0.46%** |
+| Binary F1 | 91.94% ± 0.21% | **92.04% ± 0.42%** |
+| Macro-F1 | 91.70% ± 0.24% | **91.81% ± 0.47%** |
+| Validation loss | **0.2524 ± 0.0098** | 0.2546 ± 0.0021 |
+| Mean training runtime | 854.95 ± 1.78 s | 854.88 ± 1.03 s |
+| Peak allocated GPU memory | 2.620 ± 0.005 GB | 2.622 ± 0.005 GB |
+| Trainable parameters | 1,181,184 | 1,181,184 |
+
+Under this reduced-compute protocol, LoRA+ achieved a small mean validation-accuracy improvement of approximately 0.115 percentage points over standard LoRA, with nearly identical runtime, memory usage, and trainable parameter count. The difference is suggestive rather than statistically conclusive because the final evaluation used three seeds and the same validation split for selection and reporting.
+
 ## 10. Comparison with the Original Paper
 
 | Setting | Original LoRA+ paper | Our project |

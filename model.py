@@ -31,9 +31,17 @@ def create_model(model_name, tokenizer):
 
     checkpoint = MODELS[model_name]
 
+    model_kwargs = {"num_labels": 2}
+
+    # GPT-2 does not contain a pretrained sequence-classification head.
+    # Keep the existing RoBERTa path unchanged and explicitly allow the
+    # GPT-2 classification head to be initialized for SST-2.
+    if model_name == "gpt2":
+        model_kwargs["ignore_mismatched_sizes"] = True
+
     model = AutoModelForSequenceClassification.from_pretrained(
         checkpoint,
-        num_labels=2
+        **model_kwargs
     )
 
     if model_name == "gpt2":
@@ -43,6 +51,7 @@ def create_model(model_name, tokenizer):
             )
 
         model.config.pad_token_id = tokenizer.pad_token_id
+        model.config.eos_token_id = tokenizer.eos_token_id
 
     lora_config = LoraConfig(
         task_type=TaskType.SEQ_CLS,
