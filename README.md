@@ -1,286 +1,124 @@
-# LoRA vs LoRA+: Experimental Configuration
+# LoRA vs LoRA+ — Reduced-Compute Experimental Evaluation
 
-## 1. Project Overview
+Comparison of **standard LoRA** (equal learning rates for adapter matrices A and B) and **LoRA+** (higher learning rate for B) on GLUE SST-2 and QQP, using RoBERTa-base and GPT-2. This is a **reduced-compute study**, not an exact reproduction of Hayou et al. (ICML 2024).
 
-This project evaluates **Low-Rank Adaptation (LoRA)** and **LoRA+** across different pretrained language models and GLUE benchmark datasets.
+## Repository structure
 
-The objective is to investigate whether assigning different learning rates to LoRA adapter matrices A and B improves:
+```text
+config.py                 Shared settings and output directory definitions
+model.py                  Sequence-classification models, PEFT adapters, AdamW groups
+utils.py                  GLUE loading, tokenization, accuracy/F1, runtime/CU estimates
+train.py                  Hugging Face Trainer runner and per-run JSON/CSV logging
+evaluate_results.py       Screening selection, final three-seed summaries, curves
+notebooks/
+  roberta_sst2.ipynb      RoBERTa + SST-2
+  roberta_qqp.ipynb       RoBERTa + QQP
+  gpt2_sst2.ipynb        GPT-2 + SST-2
+  GPT2_QQP.ipynb         GPT-2 + QQP (separate notebook implementation)
+results/
+  roberta_sst2_results/  Exported RoBERTa SST-2 results
+  roberta_qqp_results/   Exported RoBERTa QQP results
+requirements.txt
+```
 
-- Classification accuracy and F1 score
-- Convergence speed
-- Training efficiency
-- GPU memory utilization
-- Parameter efficiency
+**Important path caveat:** `config.py` currently generates paths under `results/<model>/<dataset>/`, while the two archived RoBERTa results directories in this ZIP use `results/roberta_sst2_results/` and `results/roberta_qqp_results/`. Thus, `evaluate_results.py` cannot discover these archived results without moving/copying the data or changing the path configuration. Do **not** overwrite the original results while reconciling paths.
 
-The experiments are inspired by the ICML 2024 paper *LoRA+: Efficient Low Rank Adaptation of Large Models* by Hayou et al.
+## Implementation
 
-Our implementation uses a reduced-compute experimental design suitable for Google Colab. It is not an exact reproduction of the paper's full hyperparameter search.
+- Base models: `roberta-base` and `gpt2` (binary sequence classification).
+- RoBERTa adapter target modules: `query`, `value`; classification head `classifier` is trainable.
+- GPT-2 shared-module target modules: `c_attn`, `c_proj`, `c_fc`; head `score` is trainable. `GPT2_QQP.ipynb` implements its own training runner and uses a distinct physical-batch/gradient-accumulation setup.
+- LoRA rank `r=8`, alpha `8`, dropout `0.1`; maximum token length `128`.
+- Shared-module training: three epochs, batch size `32`, AdamW with betas `(0.9,0.99)`, epsilon `1e-8`, weight decay `0.01`, linear LR decay and no warmup; task-head LR `1e-4`.
+- Validation every `200` optimizer steps, training-loss logging every `50`, checkpoint every `1,000`, maximum two checkpoints retained. FP16 enabled when CUDA is present.
+- `torchao` is removed in Colab notebook setup to avoid a previously encountered PEFT incompatibility.
 
-## 2. Model and Dataset Combinations
+### Datasets and metrics
 
-| Model | Dataset | Task | Primary Metric |
-|---|---|---|---|
-| RoBERTa-base | SST-2 | Sentiment classification | Accuracy |
-| RoBERTa-base | QQP | Paraphrase detection | Binary F1 |
-| GPT-2 | SST-2 | Sentiment classification | Accuracy |
-| GPT-2 | QQP | Paraphrase detection | Binary F1 |
+| Dataset | Train examples used | Validation examples | Primary screening metric |
+|---|---:|---:|---|
+| SST-2 | 67,349 | 872 | Final validation accuracy |
+| QQP | 50,000 fixed training subset (shuffle seed 42) | 40,430 | Final validation **binary F1** (duplicate class = positive) |
 
-## 3. Common Experimental Settings
+These are **validation metrics, not independent GLUE test scores**. The same validation split is used for hyperparameter selection and final result reporting.
 
-The following settings are standardized across experiments wherever supported.
+### Screening grid
 
-| Parameter | Configuration |
-|---|---|
-| LoRA rank (`r`) | 8 |
-| LoRA alpha (`lora_alpha`) | 8 |
-| LoRA dropout | 0.1 |
-| Optimizer | AdamW |
-| AdamW beta1 | 0.9 |
-| AdamW beta2 | 0.99 |
-| AdamW epsilon | 1e-8 |
-| Weight decay | 0.01 |
-| Learning-rate scheduler | Linear decay |
-| Warmup steps | 0 |
-| Training batch size | 32 |
-| Maximum sequence length | 128 |
-| Precision | FP16 when supported |
-| Screening seed | 42 |
-| Final evaluation seeds | 42, 43, 44 |
-| Validation interval | Every 200 optimizer steps |
-| LoRA initialization | Random A, zero-initialized B |
-| Checkpoint saving | Every 1,000 optimizer steps |
-| Checkpoint retention | 2 |
+| Method | A LR | B LR | B/A ratio |
+|---|---:|---:|---:|
+| LoRA | 1e-4 | 1e-4 | 1 |
+| LoRA | 2e-4 | 2e-4 | 1 |
+| LoRA | 4e-4 | 4e-4 | 1 |
+| LoRA+ | 1e-4 | 4e-4 | 4 |
+| LoRA+ | 1e-4 | 8e-4 | 8 |
+| LoRA+ | 1e-4 | 1.6e-3 | 16 |
+| LoRA+ | 2e-4 | 8e-4 | 4 |
+| LoRA+ | 2e-4 | 1.6e-3 | 8 |
+| LoRA+ | 2e-4 | 3.2e-3 | 16 |
 
-**Note:** Dropout, weight decay, evaluation frequency, and checkpoint settings are choices in our implementation. They should not be interpreted as universally specified settings in the original paper.
+Every configuration is screened using **seed 42** for **3 epochs**. Winners are chosen separately for LoRA and LoRA+ using the dataset's primary final-validation metric; `evaluate_results.py` breaks ties using **final validation loss** (not accuracy for QQP). The selected settings are then rerun at seeds **42, 43, 44**, reporting mean ± sample standard deviation.
 
-## 4. Model-Specific Settings
+## Verified RoBERTa results in this ZIP
 
-| Parameter | RoBERTa-base | GPT-2 |
-|---|---|---|
-| Pretrained checkpoint | `roberta-base` | `gpt2` |
-| Architecture | Encoder-only Transformer | Decoder-only Transformer |
-| Hidden dimension | 768 | 768 |
-| Transformer layers | 12 | 12 |
-| LoRA target modules | `query`, `value` | `c_attn`, `c_proj`, `c_fc` |
-| Classification head | RoBERTa sequence classifier | GPT-2 sequence classifier |
-| Padding | RoBERTa tokenizer padding | Explicit padding-token configuration |
-| Number of labels | 2 | 2 |
+All 30 archived RoBERTa records are present: **9 screening and 6 final runs per dataset**. For each dataset, each summary CSV matches its 15 individual JSON result files on the checked numeric fields.
 
-Both models use the same LoRA/LoRA+ optimization principle, but their adapter target modules differ because of architectural differences.
+### SST-2 — final three-seed validation results
 
-## 5. Dataset-Specific Settings
-
-| Parameter | SST-2 | QQP |
-|---|---|---|
-| Task | Binary sentiment classification | Binary paraphrase classification |
-| Input | Single sentence | Question pair |
-| Labels | Negative / Positive | Not duplicate / Duplicate |
-| Primary metric | Accuracy | Binary F1 |
-| Secondary metric | Macro-F1 | Accuracy, macro-F1 |
-| Full training examples | 67,349 | Approximately 364,000 |
-| Training examples used | 67,349 | 50,000 (planned subset) |
-| Epochs in original paper | 10 | 3 |
-| Epochs in project | 3 | 3 |
-
-For QQP, a fixed 50,000-example training subset is used to reduce computational requirements. The subset must remain identical across all configurations and seeds.
-
-## 6. LoRA vs LoRA+ Optimization
-
-The primary difference between standard LoRA and LoRA+ is how learning rates are assigned to the adapter matrices.
-
-### Standard LoRA
-
-Both matrices use the same learning rate:
-
-\[
-\eta_A=\eta_B
-\]
-
-### LoRA+
-
-Matrix B uses a larger learning rate:
-
-\[
-\eta_B=\lambda\eta_A,\qquad \lambda>1
-\]
-
-| Parameter | Standard LoRA | LoRA+ |
-|---|---|---|
-| Adapter rank | 8 | 8 |
-| Adapter alpha | 8 | 8 |
-| Adapter initialization | Same | Same |
-| Optimizer | AdamW | AdamW |
-| A learning rate | Base LR | Base LR |
-| B learning rate | Base LR | Base LR × ratio |
-| Learning-rate ratio | 1× | 4×, 8×, 16× |
-| Trainable parameters | Same for matched model | Same for matched model |
-
-The pretrained backbone remains frozen while the LoRA adapters and task-specific classification head are trained.
-
-## 7. Hyperparameter Screening
-
-### Objective
-
-Identify the best learning-rate configuration separately for standard LoRA and LoRA+.
-
-### Screening Configurations
-
-| Method | Matrix A LR | Matrix B LR | Ratio |
-|---|---|---|---|
-| LoRA | 1e-4 | 1e-4 | 1× |
-| LoRA | 2e-4 | 2e-4 | 1× |
-| LoRA | 4e-4 | 4e-4 | 1× |
-| LoRA+ | 1e-4 | 4e-4 | 4× |
-| LoRA+ | 1e-4 | 8e-4 | 8× |
-| LoRA+ | 1e-4 | 1.6e-3 | 16× |
-| LoRA+ | 2e-4 | 8e-4 | 4× |
-| LoRA+ | 2e-4 | 1.6e-3 | 8× |
-| LoRA+ | 2e-4 | 3.2e-3 | 16× |
-
-### Screening Procedure
-
-- Run all nine configurations independently.
-- Initialize a fresh pretrained model for each run.
-- Use random seed 42.
-- Train each configuration for three epochs.
-- Record validation metrics after training.
-- Select the best standard LoRA and LoRA+ configurations separately.
-
-**Selection criteria:**
-
-- SST-2: Highest final validation accuracy, with validation loss as a tie-breaker.
-- QQP: Highest final binary F1, with accuracy as a tie-breaker.
-
-**Total screening runs:** 9 per model–dataset combination.
-
-## 8. Final Multi-Seed Experiments
-
-After screening, the selected standard LoRA and LoRA+ configurations are evaluated across three random seeds.
-
-| Parameter | Final configuration |
-|---|---|
-| Configurations | Best LoRA and best LoRA+ |
-| Random seeds | 42, 43, 44 |
-| Epochs | 3 |
-| Training dataset | Same as screening |
-| Batch size | 32 |
-| Optimizer and scheduler | Same as screening |
-| Primary output | Mean ± standard deviation |
-| Additional outputs | F1, loss, runtime, memory, convergence |
-
-**Total final runs:** 2 configurations × 3 seeds = 6 runs per model–dataset combination.
-
-### Metrics Recorded
-
-| Metric | Purpose |
-|---|---|
-| Validation accuracy | Classification performance |
-| Binary F1 | Positive-class paraphrase detection performance on QQP |
-| Macro-F1 | Class-balanced classification performance |
-| Training loss | Optimization progress |
-| Validation loss | Generalization performance |
-| Training runtime | Computational efficiency |
-| Peak allocated GPU memory | GPU memory usage |
-| Trainable parameter count | Parameter efficiency |
-| Accuracy/F1 vs. steps | Convergence behavior |
-
-## 9. Completed Results: RoBERTa-base + SST-2
-
-The three-epoch screening procedure selected the following configurations:
-
-| Parameter | Standard LoRA | LoRA+ |
-|---|---|---|
-| Matrix A LR | 4e-4 | 2e-4 |
-| Matrix B LR | 4e-4 | 1.6e-3 |
-| Ratio | 1× | 8× |
-
-### Final Three-Seed Results
-
-| Metric | Standard LoRA | LoRA+ |
-|---|---|---|
-| Validation accuracy | **93.92 ± 0.20%** | 93.62 ± 0.26% |
-| Macro-F1 | **93.92 ± 0.20%** | 93.61 ± 0.27% |
-| Validation loss | 0.2062 | 0.2137 |
-| Mean training runtime | 461.56 s | 468.34 s |
+| Metric | LoRA (A=B=4e-4) | LoRA+ (A=2e-4, B=1.6e-3, ratio 8) |
+|---|---:|---:|
+| Accuracy | **93.922 ± 0.199%** | 93.616 ± 0.265% |
+| Macro-F1 | **93.920 ± 0.199%** | 93.614 ± 0.265% |
+| Validation loss | **0.2062** | 0.2137 |
+| Mean trainer runtime | 464.47 s | 465.95 s |
 | Peak allocated GPU memory | 1.393 GB | 1.393 GB |
 | Trainable parameters | 887,042 | 887,042 |
-| Steps to 93% mean validation accuracy | 1,400 | 1,400 |
 
-Standard LoRA achieved approximately 0.31 percentage points higher mean validation accuracy than LoRA+ under the tested configurations.
+**Observation:** Standard LoRA is higher by **0.306 percentage points** in mean validation accuracy among the selected configurations. This is not evidence of general superiority beyond this experiment.
 
-Both methods reached 93% mean validation accuracy at the same evaluation step and exhibited nearly identical measured GPU memory allocation.
+### QQP — final three-seed validation results
 
-These results do not establish that standard LoRA is universally superior. The learning-rate search was limited, and hyperparameter selection used one seed.
-
-## 9.1 Completed Results: GPT-2 + SST-2
-
-The GPT-2/SST-2 experiment used the same three-epoch, nine-configuration screening workflow and final three-seed evaluation. The GPT-2-specific LoRA target modules were `c_attn`, `c_proj`, and `c_fc`.
-
-### Selected Screening Configurations
-
-| Parameter | Standard LoRA | LoRA+ |
+| Metric | LoRA (A=B=4e-4) | LoRA+ (A=2e-4, B=3.2e-3, ratio 16) |
 |---|---:|---:|
-| Matrix A learning rate | 0.0002 | 0.0001 |
-| Matrix B learning rate | 0.0002 | 0.0008 |
-| Ratio (`lambda`) | 1 | 8 |
-| Screening validation accuracy | 91.97% | 92.32% |
+| Binary F1 | 81.537 ± 0.097% | **82.222 ± 0.046%** |
+| Accuracy | 85.732 ± 0.131% | **86.336 ± 0.070%** |
+| Macro-F1 | 84.955 ± 0.107% | **85.563 ± 0.060%** |
+| Validation loss | 0.3205 | **0.3131** |
+| Mean trainer runtime | 987.21 s | 990.57 s |
+| Peak allocated GPU memory | 3.116 GB | 3.116 GB |
+| Trainable parameters | 887,042 | 887,042 |
 
-### Final Three-Seed Results
+**Observation:** LoRA+ leads by **0.685 percentage points** in mean binary F1 under the selected QQP settings. The final runtime is slightly longer (approximately 3.36 s per run on average). Memory and parameter count are effectively the same.
 
-| Metric | Standard LoRA | LoRA+ |
-|---|---:|---:|
-| Validation accuracy | 91.70% ± 0.24% | **91.82% ± 0.46%** |
-| Binary F1 | 91.94% ± 0.21% | **92.04% ± 0.42%** |
-| Macro-F1 | 91.70% ± 0.24% | **91.81% ± 0.47%** |
-| Validation loss | **0.2524 ± 0.0098** | 0.2546 ± 0.0021 |
-| Mean training runtime | 854.95 ± 1.78 s | 854.88 ± 1.03 s |
-| Peak allocated GPU memory | 2.620 ± 0.005 GB | 2.622 ± 0.005 GB |
-| Trainable parameters | 1,181,184 | 1,181,184 |
+### GPT-2 status in this archive
 
-Under this reduced-compute protocol, LoRA+ achieved a small mean validation-accuracy improvement of approximately 0.115 percentage points over standard LoRA, with nearly identical runtime, memory usage, and trainable parameter count. The difference is suggestive rather than statistically conclusive because the final evaluation used three seeds and the same validation split for selection and reporting.
+- **GPT-2 + SST-2:** The notebook output reports a completed final three-seed comparison: LoRA mean accuracy **91.705%**, LoRA+ **91.820%**; unlike RoBERTa results, standalone CSV/JSON artifacts are not included in `results/` for this experiment.
+- **GPT-2 + QQP:** The notebook has separate training/output logic. It contains partial screening execution output; final evaluation is guarded by `RUN_FINAL=False` and no completed final summary is demonstrated in the archived notebook.
 
-## 10. Comparison with the Original Paper
+## Running in Colab
 
-| Setting | Original LoRA+ paper | Our project |
-|---|---|---|
-| Learning-rate search | Broad two-dimensional A/B grid | Nine configurations |
-| Seeds per reported grid configuration | 3 | 1 during screening |
-| Separate screening stage | Not described | Yes |
-| Final evaluation | Three-seed grid averages | Three seeds for selected winners |
-| SST-2 epochs | 10 | 3 |
-| QQP epochs | 3 | 3 |
-| Sequence length | 128 | 128 |
-| Batch size | 32 | 32 |
-| LoRA rank / alpha | 8 / 8 | 8 / 8 |
+1. Clone the GitHub repository into a known directory (the RoBERTa notebooks currently use different Colab checkout paths; use the actual checkout path consistently).
+2. Change into the repository root and install `requirements.txt`; run the environment fix for `torchao` if needed.
+3. Open the notebook for the selected model/dataset, initialize the modules, prepare/tokenize the dataset, then run the 50-step smoke test if included.
+4. Execute the 9 screening configurations, select the two winners, and execute 3 final seeds for each winner. QQP's LoRA+ screening is split into batches in its notebook; this is a scheduling choice, not a methodological difference.
+5. Generate the final CSV summary and convergence plot. **Only completed runs write their final JSON/CSV records.**
+6. Download a ZIP of the result files, excluding `checkpoints/`, or authenticate GitHub and push completed result files. Simply saving the notebook or committing locally does not persist results to GitHub.
 
-Our project prioritizes computational feasibility while preserving the core comparison between equal and unequal LoRA adapter learning rates.
+### Results and checkpoints
 
-### Limitations
+`train.py` writes `runs/*.json` with `log_history`, a `results_<dataset>.csv` append log, and Hugging Face checkpoints under the output root. The intermediate checkpoints are excluded from Git via `.gitignore` (`results/**/checkpoints/`). Colab local storage is temporary: back up completed results before disconnecting or switching GPUs.
 
-1. The hyperparameter search is narrower than the original paper's grid.
-2. Screening uses one random seed, which may introduce selection variability.
-3. SST-2 training uses three epochs rather than ten.
-4. The planned QQP experiment uses a reduced training subset.
-5. Hyperparameter selection and final reporting use the same GLUE validation split.
-6. Results may vary with GPU hardware and software versions.
+The `utils.py` GPU compute-unit tracker reports **estimated** CU using elapsed time and an assumed GPU-specific hourly rate. It is **not actual Colab billing information** and should not be presented as such.
 
-## 11. Experimental Reproducibility
+## Known issues to reconcile before reproducing archived results
 
-To support reproducibility:
+1. The current `evaluate_results.py` **seed-check indentation is incorrect**: the seed equality check is after the `for method` loop, so it validates only the last method. Put the check inside the loop.
+2. Archived RoBERTa output folder names do not match `get_output_dir()`.
+3. The SST-2 notebook clones to `/content/LoRA_Plus_Project` but its Git commands use `/content/LoRA-Plus`; it also retains outdated Drive/runtime-unassignment text. Standardize paths before using its upload cell.
+4. `utils.py` duplicates the `GPU_CU_RATES` dictionary and imports. The second dictionary overrides the first, and GPU detection can misidentify unfamiliar GPUs by memory size. CU estimates need measured rates.
+5. Some reported settings/version information is not pinned by `requirements.txt`; recorded JSON software-version fields should be preferred for the archived RoBERTa results.
+6. `train.py` skips saved runs based on a limited set of fields (not rank, dropout, target modules, optimizer details, dataset identities, or library versions). Changing those settings while reusing a run name could silently reuse stale results.
+7. GPT-2 + QQP uses a separate methodology/runner and is not directly interchangeable with the shared modules; document differences when comparing results.
 
-- Use identical training and validation splits for LoRA and LoRA+.
-- Initialize a fresh model for each configuration.
-- Set random seeds before model initialization.
-- Use the same training budget and evaluation procedure.
-- Keep model and dataset preprocessing consistent within each comparison.
-- Record the model, dataset, learning rates, ratio, rank, seed, and epoch count for every run.
-- Save training metrics, checkpoints, and results in separate directories.
-- Record software versions and GPU hardware.
+## Reference
 
-## 12. Reference
-
-Hayou, S., Ghosh, N., & Yu, B. (2024). **LoRA+: Efficient Low Rank Adaptation of Large Models.** Proceedings of the 41st International Conference on Machine Learning (ICML), PMLR 235.
-
-Paper: https://proceedings.mlr.press/v235/hayou24a.html
-
-Source code: https://github.com/nikhil-ghosh-berkeley/loraplus
+S. Hayou, N. Ghosh, and B. Yu. *LoRA+: Efficient Low Rank Adaptation of Large Models*. ICML 2024. https://proceedings.mlr.press/v235/hayou24a.html
