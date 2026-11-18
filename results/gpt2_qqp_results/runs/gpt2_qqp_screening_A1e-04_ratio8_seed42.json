@@ -1,0 +1,22 @@
+{
+  "stage": "screening",
+  "run_id": "screening_A1e-04_ratio8_seed42",
+  "seed": 42,
+  "lr_A": 0.0001,
+  "lr_B": 0.0008,
+  "ratio": 8,
+  "method": "LoRA+",
+  "train_samples": 50000,
+  "validation_samples": 40430,
+  "epochs": 3.0,
+  "accuracy": 0.8380163245115013,
+  "f1": 0.7835971318111224,
+  "macro_f1": 0.8270812901777513,
+  "eval_loss": 0.35979968309402466,
+  "train_runtime_seconds": 539.5543,
+  "total_runtime_seconds": 646.69943826,
+  "peak_gpu_memory_gb": 1.5915770530700684,
+  "trainable_parameters": 1181184,
+  "global_steps": 4689,
+  "subset_sha256": "4b6d64cbab6576ed317169322bdaf13629f11daabb7697c0034ee02de37c1c01"
+}

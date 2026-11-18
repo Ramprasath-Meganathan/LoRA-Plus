@@ -1,0 +1,22 @@
+{
+  "stage": "final",
+  "run_id": "final_A4e-04_ratio1_seed44",
+  "seed": 44,
+  "lr_A": 0.0004,
+  "lr_B": 0.0004,
+  "ratio": 1,
+  "method": "LoRA",
+  "train_samples": 50000,
+  "validation_samples": 40430,
+  "epochs": 3.0,
+  "accuracy": 0.8425426663368786,
+  "f1": 0.7949494298782452,
+  "macro_f1": 0.8335770154971986,
+  "eval_loss": 0.34686484932899475,
+  "train_runtime_seconds": 2646.538,
+  "total_runtime_seconds": 2703.1014339209996,
+  "peak_gpu_memory_gb": 1.5954766273498535,
+  "trainable_parameters": 1181184,
+  "global_steps": 4689,
+  "subset_sha256": "4b6d64cbab6576ed317169322bdaf13629f11daabb7697c0034ee02de37c1c01"
+}
