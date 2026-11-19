@@ -1,5 +1,4 @@
-
-# evaluate_results.py
+"""Load experiment results, select configurations, and plot convergence."""
 import json
 
 import matplotlib.pyplot as plt
@@ -14,6 +13,7 @@ from config import (
 
 
 def load_results(model_name, dataset_name):
+    """Load the CSV of completed runs for a model and dataset."""
     root = get_output_dir(model_name, dataset_name)
     path = root / f"results_{dataset_name}.csv"
 
@@ -24,6 +24,7 @@ def load_results(model_name, dataset_name):
 
 
 def select_best(model_name, dataset_name):
+    """Choose the best standard-LoRA and LoRA+ screening configurations."""
     df = load_results(model_name, dataset_name)
 
     screening = df[
@@ -90,6 +91,7 @@ def select_best(model_name, dataset_name):
 
 
 def get_final_runs(model_name, dataset_name):
+    """Load all final-seed runs for the selected hyperparameters."""
     df = load_results(model_name, dataset_name)
     best_lora, best_plus = select_best(
         model_name, dataset_name
@@ -151,6 +153,7 @@ def get_final_runs(model_name, dataset_name):
 
 
 def summarize_final(model_name, dataset_name):
+    """Aggregate final-run metrics across seeds and save a summary CSV."""
     final = get_final_runs(model_name, dataset_name)
 
     metrics = [
@@ -178,6 +181,7 @@ def summarize_final(model_name, dataset_name):
 
 
 def plot_convergence(model_name, dataset_name):
+    """Plot mean validation convergence and seed variation for each method."""
     root = get_output_dir(model_name, dataset_name)
     final = get_final_runs(model_name, dataset_name)
 

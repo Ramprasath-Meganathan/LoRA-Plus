@@ -1,5 +1,4 @@
-
-# model.py
+"""Model construction and LoRA/LoRA+ optimizer setup."""
 import torch
 
 from transformers import (
@@ -21,9 +20,17 @@ from config import (
 
 
 def create_model(model_name, tokenizer):
-    """
-    Initialize a fresh pretrained classification model
-    and attach LoRA adapters.
+    """Create a pretrained classifier and attach PEFT LoRA adapters.
+
+    Args:
+        model_name: Short model key declared in ``MODELS``.
+        tokenizer: Tokenizer associated with the selected checkpoint.
+
+    Returns:
+        A PEFT-wrapped sequence-classification model.
+
+    Raises:
+        ValueError: If the model key or GPT-2 padding setup is unsupported.
     """
 
     if model_name not in MODELS:
@@ -71,11 +78,22 @@ def create_model(model_name, tokenizer):
 
 
 def create_optimizer(model, base_lr, ratio):
-    """
-    Standard LoRA: ratio = 1
-    LoRA+: ratio > 1
+    """Build an AdamW optimizer with separate LoRA A and B learning rates.
 
-    eta_B = ratio * eta_A
+    A standard LoRA run uses ``ratio == 1``; LoRA+ uses ``ratio > 1`` and sets
+    ``eta_B = ratio * eta_A``. Classification-head parameters receive the
+    independently configured classifier learning rate.
+
+    Args:
+        model: PEFT-wrapped model containing trainable LoRA parameters.
+        base_lr: Learning rate for LoRA A parameters.
+        ratio: Factor applied to the LoRA B learning rate.
+
+    Returns:
+        An AdamW optimizer covering every trainable model parameter.
+
+    Raises:
+        ValueError: If learning rates are invalid or parameter groups are missing.
     """
 
     if base_lr <= 0:

@@ -1,7 +1,9 @@
-
-# utils.py
+"""Dataset preparation, metric computation, and Colab GPU cost tracking."""
 import numpy as np
+import time
+import torch
 import evaluate
+from contextlib import contextmanager
 
 from datasets import load_dataset
 
@@ -26,14 +28,16 @@ def prepare_dataset(
     dataset_name,
     pilot=False
 ):
-    """
-    Prepare the dataset once per notebook session.
+    """Prepare and tokenize a GLUE dataset for one model.
+
+    Args:
+        model_name: Model key used to load the tokenizer and checkpoint.
+        dataset_name: GLUE dataset key.
+        pilot: Limit training and validation sets for a quick smoke test.
 
     Returns:
-        tokenizer
-        train_dataset
-        eval_dataset
-        data_collator
+        A tuple containing the tokenizer, training set, validation set, and
+        padding data collator.
     """
 
     if model_name not in MODELS:
@@ -145,9 +149,7 @@ def prepare_dataset(
 
 
 def compute_metrics(eval_prediction):
-    """
-    Compute accuracy, binary F1, and macro-F1.
-    """
+    """Compute accuracy, binary F1, and macro-averaged F1 for predictions."""
 
     logits, labels = eval_prediction
 
@@ -176,34 +178,8 @@ def compute_metrics(eval_prediction):
         "f1_macro": macro_f1,
     }
 
-# --------------------------------------------------
-# Colab GPU Runtime and Compute Unit Estimation
-# --------------------------------------------------
-
-import time
-import torch
-from contextlib import contextmanager
-
-# Estimated CU/hour rates (not official billing rates)
-GPU_CU_RATES = {
-    "T4": 1.15,
-    "L4": 1.54,
-    "A100 40GB": 5.35,
-    "A100 80GB": 7.15,
-    "G4": 8.80,
-    "H100": 18.00,
-}
-
-# --------------------------------------------------
-# Colab GPU Runtime and Compute Unit Estimation
-# --------------------------------------------------
-
-import time
-import torch
-from contextlib import contextmanager
-
-# Approximate Google Colab Compute Unit (CU) hourly rates 
-# (Subject to minor adjustments by Google; 1 CU = ~$0.10 USD)
+# Approximate Colab Compute Unit (CU) hourly rates.
+# These are estimates for cost reporting, not official billing guarantees.
 GPU_CU_RATES = {
     "T4": 1.19,
     "L4": 1.71,

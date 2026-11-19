@@ -1,5 +1,4 @@
-
-# train.py
+"""Run, cache, and record LoRA and LoRA+ training experiments."""
 import gc
 import json
 import os
@@ -35,14 +34,28 @@ def run_experiment(
     stage="screening",
     max_steps=-1,
 ):
-    """
-    Train and evaluate LoRA or LoRA+.
+    """Train and evaluate one LoRA or LoRA+ configuration.
 
-    lam=1: standard LoRA
-    lam>1: LoRA+
+    ``lam == 1`` selects standard LoRA; ``lam > 1`` selects LoRA+. The prepared
+    tokenizer and datasets are reused across runs. Completed non-test runs are
+    returned from disk when their saved settings match the requested settings.
 
-    The tokenizer and datasets are prepared outside this
-    function and reused across all experiments.
+    Args:
+        model_name: Model key used to locate the checkpoint and configuration.
+        dataset_name: GLUE dataset key used to locate data and output paths.
+        tokenizer: Tokenizer prepared by ``prepare_dataset``.
+        train_dataset: Tokenized training dataset.
+        eval_dataset: Tokenized validation dataset.
+        data_collator: Collator for padding a batch of training examples.
+        lam: LoRA B-to-A learning-rate ratio.
+        seed: Random seed for model and training reproducibility.
+        epochs: Number of full passes over the training dataset.
+        base_lr: Learning rate for LoRA A parameters.
+        stage: Experiment stage, such as screening or final.
+        max_steps: Maximum optimizer steps; -1 uses ``epochs`` instead.
+
+    Returns:
+        A dictionary of result metrics and run metadata.
     """
 
     root = get_output_dir(model_name, dataset_name)

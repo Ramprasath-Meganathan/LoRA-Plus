@@ -1,10 +1,7 @@
-
-# config.py
+"""Central configuration for models, datasets, LoRA search grids, and output paths."""
 from pathlib import Path
 
-# Persistent Google Drive output location.
-# This is separate from your completed SST-2 experiment.
-
+# Resolve paths from the repository so results remain portable across runtimes.
 PROJECT_ROOT = Path(__file__).resolve().parent
 OUTPUT_ROOT = PROJECT_ROOT / "results"
 
