@@ -58,9 +58,9 @@ These are **validation metrics, not independent GLUE test scores**. The same val
 
 Every configuration is screened using **seed 42** for **3 epochs**. Winners are chosen separately for LoRA and LoRA+ using the dataset's primary final-validation metric; `evaluate_results.py` breaks ties using **final validation loss** (not accuracy for QQP). The selected settings are then rerun at seeds **42, 43, 44**, reporting mean ± sample standard deviation.
 
-## Verified RoBERTa results in this ZIP
+## Uploaded RoBERTa results
 
-All 30 archived RoBERTa records are present: **9 screening and 6 final runs per dataset**. For each dataset, each summary CSV matches its 15 individual JSON result files on the checked numeric fields.
+All 30 uploaded RoBERTa records are present: **9 screening and 6 final runs per dataset**. For each dataset, each summary CSV matches its 15 individual JSON result files on the checked numeric fields.
 
 ### SST-2 — final three-seed validation results
 
@@ -89,10 +89,10 @@ All 30 archived RoBERTa records are present: **9 screening and 6 final runs per 
 
 **Observation:** LoRA+ leads by **0.685 percentage points** in mean binary F1 under the selected QQP settings. The final runtime is slightly longer (approximately 3.36 s per run on average). Memory and parameter count are effectively the same.
 
-### GPT-2 status in this archive
+### Uploaded GPT-2 results
 
 - **GPT-2 + SST-2:** The repository contains screening and final run artifacts under `results/gpt2_sst2_results/`. The notebook output reports a completed final three-seed comparison: LoRA mean accuracy **91.705%**, LoRA+ **91.820%**.
-- **GPT-2 + QQP:** The repository contains six final-run records under `results/gpt2_qqp_results/`. The notebook uses a separate training/output implementation and has `RUN_FINAL = True` in the final-evaluation section. Screening records are not included in the archived result directory, so the screening and final workflow is not yet represented consistently by the shared `evaluate_results.py` module.
+- **GPT-2 + QQP:** The repository contains screening and final run artifacts under `results/gpt2_qqp_results/`. Its CSV contains six final-run rows; screening records are available as JSON files. The notebook uses a separate training/output implementation and has `RUN_FINAL = True` in the final-evaluation section, so these results are not handled by the shared `evaluate_results.py` workflow.
 
 ## Running in Colab
 
