@@ -1,4 +1,4 @@
-# LoRA vs LoRA+ — Reduced-Compute Experimental Evaluation
+# LoRA vs LoRA+ - Reduced-Compute Experimental Evaluation
 
 Comparison of **standard LoRA** (equal learning rates for adapter matrices A and B) and **LoRA+** (higher learning rate for B) on GLUE SST-2 and QQP, using RoBERTa-base and GPT-2. This is a **reduced-compute study**, not an exact reproduction of Hayou et al. (ICML 2024).
 
@@ -62,7 +62,7 @@ Every configuration is screened using **seed 42** for **3 epochs**. Winners are 
 
 All 30 uploaded RoBERTa records are present: **9 screening and 6 final runs per dataset**. For each dataset, each summary CSV matches its 15 individual JSON result files on the checked numeric fields.
 
-### SST-2 — final three-seed validation results
+### SST-2 - final three-seed validation results
 
 | Metric | LoRA (A=B=4e-4) | LoRA+ (A=2e-4, B=1.6e-3, ratio 8) |
 |---|---:|---:|
@@ -75,7 +75,7 @@ All 30 uploaded RoBERTa records are present: **9 screening and 6 final runs per 
 
 **Observation:** Standard LoRA is higher by **0.306 percentage points** in mean validation accuracy among the selected configurations. This is not evidence of general superiority beyond this experiment.
 
-### QQP — final three-seed validation results
+### QQP - final three-seed validation results
 
 | Metric | LoRA (A=B=4e-4) | LoRA+ (A=2e-4, B=3.2e-3, ratio 16) |
 |---|---:|---:|
