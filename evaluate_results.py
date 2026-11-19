@@ -141,13 +141,13 @@ def get_final_runs(model_name, dataset_name):
                 final["method"] == method,
                 "seed"
             ].astype(int)
-    )
-
-    if actual_seeds != expected_seeds:
-        raise ValueError(
-            f"{method}: Expected seeds {expected_seeds}, "
-            f"found {actual_seeds}"
         )
+
+        if actual_seeds != expected_seeds:
+            raise ValueError(
+                f"{method}: Expected seeds {expected_seeds}, "
+                f"found {actual_seeds}"
+            )
 
     return final
 
